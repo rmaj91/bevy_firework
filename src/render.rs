@@ -6,7 +6,7 @@ use super::core::{ParticleData, ParticleSpawner, ParticleSpawnerData};
 use bevy::{
     camera::{primitives::Aabb, visibility::RenderLayers},
     core_pipeline::{
-        core_3d::{CORE_3D_DEPTH_FORMAT, Transparent3d},
+        core_3d::{CORE_3D_DEPTH_FORMAT, Transparent3d, TransparentSortingInfo3d},
         prepass::{
             DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures,
         },
@@ -174,7 +174,7 @@ impl DummyTextures {
                 address_mode_v: AddressMode::ClampToEdge,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
+                mipmap_filter: MipmapFilterMode::Nearest,
                 ..Default::default()
             });
 
@@ -494,7 +494,7 @@ fn queue_custom(
         else {
             continue;
         };
-        let mut view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = msaa_key | MeshPipelineKey::from_target_format(view.target_format);
 
         match maybe_shadow_filtering_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
@@ -518,12 +518,15 @@ fn queue_custom(
                 continue;
             }
 
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
+            let Some(_mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
             else {
                 continue;
             };
             let mut key = view_key
-                | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+                | MeshPipelineKey::from_primitive_topology_and_strip_index(
+                    PrimitiveTopology::TriangleList,
+                    None,
+                );
             //key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             match particle_material_data.alpha_mode {
                 AlphaMode::Blend => {
@@ -562,11 +565,13 @@ fn queue_custom(
             let pipeline = firework_pipeline
                 .variants
                 .specialize(&pipeline_cache, FireworkPipelineKey(key))?;
-            transparent_phase.add(Transparent3d {
+            let sorting_info = TransparentSortingInfo3d::AlwaysOnTop;
+            transparent_phase.add_retained(Transparent3d {
+                sorting_info,
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance(&mesh_instance.center),
+                distance: sorting_info.sort_distance(&rangefinder),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
@@ -743,7 +748,7 @@ impl FromWorld for FireworkPipeline {
 
         let base_descriptor = RenderPipelineDescriptor {
             label: Some("Firework Pipeline".into()),
-            push_constant_ranges: vec![],
+            immediate_size: 0,
             vertex: VertexState {
                 shader: PARTICLE_SHADER_HANDLE.clone(),
                 entry_point: Some("vertex".into()),
@@ -787,9 +792,9 @@ impl FromWorld for FireworkPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
+                depth_write_enabled: Some(false),
                 // Bevy uses reverse-Z, so Greater really means closer
-                depth_compare: CompareFunction::Greater,
+                depth_compare: Some(CompareFunction::Greater),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -841,11 +846,7 @@ impl Specializer<RenderPipeline> for FireworkSpecializer {
             uniform_layout,
         ];
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.target_format();
 
         let mut shader_defs = vec!["MESH_BINDGROUP_1".into(), "VERTEX_UVS".into()];
 

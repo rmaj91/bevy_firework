@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_utilitarian::geometric::pitchyaw::PitchYaw;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
@@ -19,15 +18,15 @@ impl EmissionShape {
         match self {
             Self::Point => Vec3::ZERO,
             Self::Sphere(radius) => {
-                let (u, v, r) = (
-                    rand::random::<f32>() * 2. * PI,
-                    rand::random::<f32>() * PI,
-                    rand::random::<f32>(),
-                );
+                let u = rand::random::<f32>() * 2.0 * PI;
+                let v = rand::random::<f32>() * PI;
+                let r = rand::random::<f32>();
+                let horizontal_y = v.sin();
+                let xz_factor = v.cos();
+                let horizontal_x = -u.sin() * xz_factor;
+                let horizontal_z = -u.cos() * xz_factor;
 
-                let spherical = PitchYaw::new(u, v);
-
-                spherical.to_unit_vec() * r * (*radius)
+                Vec3::new(horizontal_x, horizontal_y, horizontal_z) * r * (*radius)
             }
             Self::Circle { normal, radius } => {
                 let (u, r) = (rand::random::<f32>() * 2. * PI, rand::random::<f32>());

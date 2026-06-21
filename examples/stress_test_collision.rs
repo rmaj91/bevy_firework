@@ -1,9 +1,9 @@
 use avian3d::{PhysicsPlugins, prelude::Collider, spatial_query::SpatialQueryFilter};
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    camera::Hdr,
     post_process::bloom::Bloom,
     prelude::*,
-    render::view::Hdr,
 };
 use bevy_firework::{
     core::{
@@ -14,7 +14,7 @@ use bevy_firework::{
     emission_shape::EmissionShape,
     plugin::ParticleSystemPlugin,
 };
-use bevy_utilitarian::prelude::*;
+use bevy_firework::randomized_values::prelude::*;
 use std::f32::consts::PI;
 
 fn main() {
@@ -74,7 +74,7 @@ fn setup(
     commands.spawn((
         Text("FPS: ".to_string()),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
         DebugInfoText,
@@ -153,7 +153,7 @@ fn setup(
     commands.spawn((
         PointLight {
             intensity: 1500000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

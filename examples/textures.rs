@@ -2,11 +2,11 @@ use std::f32::consts::FRAC_PI_2;
 
 use avian3d::prelude::{Collider, SpatialQueryFilter};
 use bevy::{
+    camera::Hdr,
     core_pipeline::prepass::DepthPrepass,
     image::{ImageLoaderSettings, ImageSamplerDescriptor},
     post_process::bloom::Bloom,
     prelude::*,
-    render::view::Hdr,
 };
 use bevy_firework::{
     core::{
@@ -17,7 +17,7 @@ use bevy_firework::{
     emission_shape::EmissionShape,
     plugin::ParticleSystemPlugin,
 };
-use bevy_utilitarian::prelude::*;
+use bevy_firework::randomized_values::prelude::*;
 
 fn main() {
     let mut app = App::new();
@@ -42,7 +42,7 @@ fn setup(
     commands.spawn((
         Text("Press Space to toggle slow motion".to_string()),
         TextFont {
-            font_size: 40.0,
+            font_size: FontSize::Px(40.0),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -207,7 +207,7 @@ fn setup(
     // light
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 4.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),

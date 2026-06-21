@@ -53,7 +53,7 @@ animation).
 
 ## Version table
 
-| `bevy_firework` | `bevy` | `bevy_utilitarian` | `avian`  |
+| `bevy_firework` | `bevy` | local random helpers | `avian`  |
 | --------------- | ------ | ------------------ | -------- |
 | 0.1 | 0.12 | 0.2 | |
 | 0.2 | 0.12 | 0.3 | |

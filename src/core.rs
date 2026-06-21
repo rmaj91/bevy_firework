@@ -1,8 +1,8 @@
 use crate::curve::{FireworkCurve, FireworkGradient};
+use crate::randomized_values::prelude::*;
 
 use super::emission_shape::EmissionShape;
 use bevy::{ecs::system::SystemId, prelude::*, render::batching::NoAutomaticBatching};
-use bevy_utilitarian::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "physics_avian")]
