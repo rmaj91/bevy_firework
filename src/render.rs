@@ -939,12 +939,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetFireworkBindGroup<I> 
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (uniform_index, firework_uniform_bindgroups) = item_query.unwrap();
+        let Some((uniform_index, firework_uniform_bindgroups)) = item_query else {
+            return RenderCommandResult::Skip;
+        };
 
-        let bindgroup = firework_uniform_bindgroups
-            .bindgroups
-            .get(&view_entity)
-            .unwrap();
+        let Some(bindgroup) = firework_uniform_bindgroups.bindgroups.get(&view_entity) else {
+            return RenderCommandResult::Skip;
+        };
         pass.set_bind_group(I, bindgroup, &[uniform_index.index()]);
         RenderCommandResult::Success
     }
