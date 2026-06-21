@@ -15,12 +15,13 @@ use bevy::{
     light::ShadowFilteringMethod,
     mesh::VertexBufferLayout,
     pbr::{
-        MeshPipeline, MeshPipelineKey, MeshPipelineSystems, RenderMeshInstances, SetMeshViewBindGroup,
-        SetMeshViewBindingArrayBindGroup,
+        DistanceFog, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, RenderMeshInstances,
+        SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
     },
     platform::collections::HashMap,
     prelude::*,
     render::{
+        camera::ExtractedCamera,
         Extract, Render, RenderApp, RenderSystems,
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::RenderAssets,
@@ -493,6 +494,7 @@ fn queue_custom(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
         &ExtractedView,
+        Option<&ExtractedCamera>,
         Option<&ShadowFilteringMethod>,
         &Msaa,
         (
@@ -501,6 +503,7 @@ fn queue_custom(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
+        Has<DistanceFog>,
         Option<&RenderLayers>,
     )>,
 ) -> Result<()> {
@@ -511,9 +514,11 @@ fn queue_custom(
 
     for (
         view,
+        camera,
         maybe_shadow_filtering_method,
         msaa,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        distance_fog,
         render_layers,
     ) in &mut views
     {
@@ -523,6 +528,12 @@ fn queue_custom(
             continue;
         };
         let mut view_key = msaa_key | MeshPipelineKey::from_target_format(view.target_format);
+        if camera.is_none_or(|camera| !camera.hdr) {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
 
         match maybe_shadow_filtering_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
