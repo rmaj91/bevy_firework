@@ -15,7 +15,7 @@ use bevy::{
     light::ShadowFilteringMethod,
     mesh::VertexBufferLayout,
     pbr::{
-        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshViewBindGroup,
+        MeshPipeline, MeshPipelineKey, MeshPipelineSystems, RenderMeshInstances, SetMeshViewBindGroup,
         SetMeshViewBindingArrayBindGroup,
     },
     platform::collections::HashMap,
@@ -57,7 +57,6 @@ impl Plugin for CustomMaterialPlugin {
                 Render,
                 (
                     ensure_dummy_textures_exist,
-                    init_firework_pipeline,
                     (
                         queue_custom.in_set(RenderSystems::QueueMeshes),
                         prepare_instance_buffers.in_set(RenderSystems::PrepareResources),
@@ -66,6 +65,12 @@ impl Plugin for CustomMaterialPlugin {
                 )
                     .chain(),
             );
+        render_app.add_systems(
+            Render,
+            init_firework_pipeline
+                .in_set(RenderSystems::PrepareAssets)
+                .after(MeshPipelineSystems),
+        );
     }
 
     fn finish(&self, app: &mut App) {
