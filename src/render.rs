@@ -57,6 +57,7 @@ impl Plugin for CustomMaterialPlugin {
                 Render,
                 (
                     ensure_dummy_textures_exist,
+                    init_firework_pipeline,
                     (
                         queue_custom.in_set(RenderSystems::QueueMeshes),
                         prepare_instance_buffers.in_set(RenderSystems::PrepareResources),
@@ -71,7 +72,6 @@ impl Plugin for CustomMaterialPlugin {
         let render_app = app.sub_app_mut(RenderApp);
 
         render_app.init_resource::<FireworkUniformBindgroupLayouts>();
-        render_app.init_resource::<FireworkPipeline>();
     }
 }
 
@@ -83,6 +83,26 @@ fn ensure_dummy_textures_exist(
     if dummy_textures.is_none() {
         commands.insert_resource(DummyTextures::new(&render_device));
     }
+}
+
+fn init_firework_pipeline(
+    mut commands: Commands,
+    firework_pipeline: Option<Res<FireworkPipeline>>,
+    mesh_pipeline: Option<Res<MeshPipeline>>,
+    bind_group_layouts: Option<Res<FireworkUniformBindgroupLayouts>>,
+) {
+    if firework_pipeline.is_some() {
+        return;
+    }
+
+    let (Some(mesh_pipeline), Some(bind_group_layouts)) = (mesh_pipeline, bind_group_layouts) else {
+        return;
+    };
+
+    commands.insert_resource(FireworkPipeline::new(
+        mesh_pipeline.clone(),
+        &bind_group_layouts,
+    ));
 }
 
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -456,7 +476,7 @@ fn extract_firework_components(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
-    mut firework_pipeline: ResMut<FireworkPipeline>,
+    firework_pipeline: Option<ResMut<FireworkPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     render_mesh_instances: Res<RenderMeshInstances>,
     particle_materials: Query<(
@@ -479,6 +499,9 @@ fn queue_custom(
         Option<&RenderLayers>,
     )>,
 ) -> Result<()> {
+    let Some(mut firework_pipeline) = firework_pipeline else {
+        return Ok(());
+    };
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     for (
@@ -741,11 +764,8 @@ pub struct FireworkPipeline {
     variants: Variants<RenderPipeline, FireworkSpecializer>,
 }
 
-impl FromWorld for FireworkPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mesh_pipeline = world.resource::<MeshPipeline>();
-        let bind_group_layouts = world.resource::<FireworkUniformBindgroupLayouts>();
-
+impl FireworkPipeline {
+    fn new(mesh_pipeline: MeshPipeline, bind_group_layouts: &FireworkUniformBindgroupLayouts) -> Self {
         let base_descriptor = RenderPipelineDescriptor {
             label: Some("Firework Pipeline".into()),
             immediate_size: 0,
@@ -756,25 +776,21 @@ impl FromWorld for FireworkPipeline {
                     array_stride: std::mem::size_of::<ParticleInstance>() as u64,
                     step_mode: VertexStepMode::Instance,
                     attributes: vec![
-                        // position and scale
                         VertexAttribute {
                             format: VertexFormat::Float32x4,
                             offset: 0,
-                            shader_location: 3, // shader locations 0-2 are taken up by Position, Normal and UV attributes
+                            shader_location: 3,
                         },
-                        // rotation
                         VertexAttribute {
                             format: VertexFormat::Float32x4,
                             offset: VertexFormat::Float32x4.size(),
                             shader_location: 4,
                         },
-                        // base color
                         VertexAttribute {
                             format: VertexFormat::Float32x4,
                             offset: 2 * VertexFormat::Float32x4.size(),
                             shader_location: 5,
                         },
-                        // emissive color
                         VertexAttribute {
                             format: VertexFormat::Float32x4,
                             offset: 3 * VertexFormat::Float32x4.size(),
@@ -793,7 +809,6 @@ impl FromWorld for FireworkPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: Some(false),
-                // Bevy uses reverse-Z, so Greater really means closer
                 depth_compare: Some(CompareFunction::Greater),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
@@ -809,9 +824,9 @@ impl FromWorld for FireworkPipeline {
 
         let variants = Variants::new(
             FireworkSpecializer {
-                uniform_layout: bind_group_layouts.layout.clone().clone(),
-                uniform_layout_msaa: bind_group_layouts.layout_msaa.clone().clone(),
-                mesh_pipeline: mesh_pipeline.clone(),
+                uniform_layout: bind_group_layouts.layout.clone(),
+                uniform_layout_msaa: bind_group_layouts.layout_msaa.clone(),
+                mesh_pipeline,
             },
             base_descriptor,
         );
